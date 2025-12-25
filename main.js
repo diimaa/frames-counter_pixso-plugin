@@ -1,5 +1,9 @@
-async function countFramesOnCurrentPage() {
-  const frames = await pixso.currentPage.findAllAsync(node => node.type === 'FRAME');
-  pixso.notify(`Фреймов на странице: ${frames.length}`);
+async function countTopLevelFrames() {
+  const topLevelFrames = pixso.currentPage.children.filter(
+    node => node.type === 'FRAME' && node.visible !== false
+  );
+
+  pixso.notify(`Видимых верхнеуровневых фреймов: ${topLevelFrames.length}`);
 }
-countFramesOnCurrentPage();
+
+countTopLevelFrames();
