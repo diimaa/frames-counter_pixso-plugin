@@ -1,2 +1,113 @@
-// В ui.html пока просто вывод сообщения.
-parent.postMessage({ pluginMessage: { type: 'count-frames' } }, '*');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Frames Counter</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --bg: #000;
+      --panel: #1b202b;
+      --accent: #7fd1ff;
+      --text-primary: #fff;
+      --text-secondary: #9aa2b1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 320px;
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .label {
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .frame-count {
+      font-size: 72px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .status {
+      font-size: 12px;
+      padding: 6px 10px;
+      align-self: flex-start;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <p class="label">Видимых фреймов</p>
+    <p id="frameCount" class="frame-count">—</p>
+    <p class="meta" id="metaLine">Подождите, я считаю.</p>
+    <span class="status" id="statusBadge">И раз, и два, и три...</span>
+  </main>
+
+  <script>
+    const frameCountEl = document.getElementById('frameCount');
+    const metaLineEl = document.getElementById('metaLine');
+    const statusBadgeEl = document.getElementById('statusBadge');
+
+    function setLoadingState() {
+      frameCountEl.textContent = '—';
+      metaLineEl.textContent = 'Подождите, я считаю.';
+      statusBadgeEl.textContent = 'И раз, и два, и три...';
+    }
+
+    function setResultState({ count, pagesScanned }) {
+      frameCountEl.textContent = count.toLocaleString('ru-RU');
+      metaLineEl.textContent = `Просмотрено страниц: ${pagesScanned}`;
+      statusBadgeEl.textContent = 'Закончили упражнение';
+    }
+
+    setLoadingState();
+
+    window.onmessage = event => {
+      if (event.data?.pluginMessage?.type === 'frames-counted') {
+        const payload = event.data.pluginMessage;
+        setResultState({
+          count: payload.count ?? 0,
+          pagesScanned: payload.pagesScanned ?? 0
+        });
+      }
+    };
+  </script>
+</body>
+</html>

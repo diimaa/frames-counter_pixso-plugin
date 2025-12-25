@@ -1,33 +1,83 @@
-function collectVisibleFramesFromSection(section) {
-  const directFrames = section.children.filter(
-    node => node.type === 'FRAME' && node.visible !== false
-  );
+pixso.showUI(__html__, { width: 360, height: 320 });
 
-  const nestedSectionFrames = section.children
-    .filter(node => node.type === 'SECTION' && node.visible !== false)
-    .flatMap(nestedSection => collectVisibleFramesFromSection(nestedSection));
+const messageTypes = {
+  recountRequest: 'request-recount',
+  framesCounted: 'frames-counted'
+};
 
-  return [...directFrames, ...nestedSectionFrames];
+const isVisible = node => node?.visible !== false;
+
+function countFramesInsideSection(section) {
+  if (!section?.children) return 0;
+
+  let total = 0;
+
+  for (const child of section.children) {
+    if (!isVisible(child)) continue;
+
+    if (child.type === 'FRAME') {
+      total += 1;
+    } else if (child.type === 'SECTION') {
+      total += countFramesInsideSection(child);
+    }
+  }
+
+  return total;
 }
 
-function countVisibleTopLevelFramesInFile() {
-  const pages = pixso.root.children.filter(
-    node => node.type === 'PAGE' && node.visible !== false
-  );
+function countVisibleTopLevelFrames() {
+  const pages = pixso.root?.children?.filter(node => node.type === 'PAGE') ?? [];
+  let visibleFrameCount = 0;
+  let pagesScanned = 0;
 
-  const visibleFrames = pages.flatMap(page => {
-    const pageFrames = page.children.filter(
-      node => node.type === 'FRAME' && node.visible !== false
-    );
+  for (const page of pages) {
+    if (!isVisible(page)) continue;
+    pagesScanned += 1;
 
-    const sectionFrames = page.children
-      .filter(node => node.type === 'SECTION' && node.visible !== false)
-      .flatMap(section => collectVisibleFramesFromSection(section));
+    const children = page.children ?? [];
 
-    return [...pageFrames, ...sectionFrames];
+    for (const child of children) {
+      if (!isVisible(child)) continue;
+
+      if (child.type === 'FRAME') {
+        visibleFrameCount += 1;
+      } else if (child.type === 'SECTION') {
+        visibleFrameCount += countFramesInsideSection(child);
+      }
+    }
+  }
+
+  return { count: visibleFrameCount, pagesScanned };
+}
+
+function postResultToUI(payload) {
+  pixso.ui.postMessage({
+    type: messageTypes.framesCounted,
+    ...payload
   });
-
-  pixso.notify(`Видимых фреймов во всём файле: ${visibleFrames.length}`);
 }
 
-countVisibleTopLevelFramesInFile();
+function runFrameAudit() {
+  try {
+    const { count, pagesScanned } = countVisibleTopLevelFrames();
+    postResultToUI({
+      count,
+      pagesScanned,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    postResultToUI({
+      count: 0,
+      pagesScanned: 0,
+      error: error?.message || String(error)
+    });
+  }
+}
+
+pixso.ui.onmessage = message => {
+  if (message?.type === messageTypes.recountRequest) {
+    runFrameAudit();
+  }
+};
+
+runFrameAudit();

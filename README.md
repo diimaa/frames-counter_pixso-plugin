@@ -4,4 +4,4 @@
 Особенности:
 - версия для Pixso Private Deployment в организации;
 - поддерживает Plugin API в версиях 1.86.x и 2.xx;
-- без публикации в Pixso Global.
+- без публикации в Pixso Global (Plugin) Community.
