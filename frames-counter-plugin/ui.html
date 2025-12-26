@@ -2,112 +2,202 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Frames Counter</title>
+  <title>Счетчик фреймов</title>
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      --bg: #000;
-      --panel: #1b202b;
-      --accent: #7fd1ff;
-      --text-primary: #fff;
-      --text-secondary: #9aa2b1;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #111827;
+      background: #f4f6fb;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
     body {
-      background: var(--bg);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      margin: 0;
+      padding: 16px;
+      background: #f4f6fb;
     }
-
     .card {
-      width: 320px;
-      background: var(--panel);
+      background: #fff;
       border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
     }
-
-    .label {
+    .title {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .subtitle {
+      margin: 0 0 20px;
+      color: #6b7280;
       font-size: 14px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
     }
-
-    .frame-count {
-      font-size: 72px;
+    .metric {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .metric-value {
+      font-size: 48px;
       font-weight: 700;
-      color: var(--accent);
-      line-height: 1;
+      color: #2563eb;
     }
-
+    .metric-label {
+      font-size: 14px;
+      color: #6b7280;
+    }
     .meta {
       font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.4;
+      color: #6b7280;
+      margin-bottom: 12px;
     }
-
-    .status {
-      font-size: 12px;
-      padding: 6px 10px;
-      align-self: flex-start;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 600;
+      color: #fff;
+      background: #2563eb;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .groups {
+      margin-top: 24px;
+    }
+    .groups h2 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    .group-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .error {
+      margin-top: 12px;
+      color: #dc2626;
+      font-size: 13px;
+    }
+    .empty {
+      font-size: 13px;
+      color: #9ca3af;
     }
   </style>
 </head>
 <body>
-  <main class="card">
-    <p class="label">Видимых фреймов</p>
-    <p id="frameCount" class="frame-count">—</p>
-    <p class="meta" id="metaLine">Подождите, я считаю.</p>
-    <span class="status" id="statusBadge">И раз, и два, и три...</span>
-  </main>
+  <div class="card">
+    <h1 class="title">Frame Scanner</h1>
+    <p class="subtitle">Подсчёт видимых верхнеуровневых фреймов</p>
+
+    <div class="metric">
+      <span class="metric-value" id="frameCount">–</span>
+      <span class="metric-label">фреймов</span>
+    </div>
+
+    <div class="meta" id="pagesInfo">Страницы: –</div>
+    <div class="meta" id="updatedAt">Обновлено: –</div>
+
+    <button id="refreshBtn">Пересчитать</button>
+    <div class="error" id="frameError" hidden></div>
+
+    <section class="groups">
+      <h2>Группы</h2>
+      <div id="groupList" class="empty">Здесь появится статистика по группам</div>
+      <button id="groupBtn">Обновить группы</button>
+      <div class="error" id="groupError" hidden></div>
+    </section>
+  </div>
 
   <script>
     const frameCountEl = document.getElementById('frameCount');
-    const metaLineEl = document.getElementById('metaLine');
-    const statusBadgeEl = document.getElementById('statusBadge');
+    const pagesInfoEl = document.getElementById('pagesInfo');
+    const updatedAtEl = document.getElementById('updatedAt');
+    const frameErrorEl = document.getElementById('frameError');
+    const refreshBtn = document.getElementById('refreshBtn');
 
-    function setLoadingState() {
-      frameCountEl.textContent = '—';
-      metaLineEl.textContent = 'Подождите, я считаю.';
-      statusBadgeEl.textContent = 'И раз, и два, и три...';
+    const groupListEl = document.getElementById('groupList');
+    const groupErrorEl = document.getElementById('groupError');
+    const groupBtn = document.getElementById('groupBtn');
+
+    function formatDate(value) {
+      return new Date(value).toLocaleString('ru-RU');
     }
 
-    function setResultState({ count, pagesScanned }) {
-      frameCountEl.textContent = count.toLocaleString('ru-RU');
-      metaLineEl.textContent = `Просмотрено страниц: ${pagesScanned}`;
-      statusBadgeEl.textContent = 'Закончили упражнение';
+    function sendMessage(type) {
+      parent.postMessage({ pluginMessage: { type } }, '*');
     }
 
-    setLoadingState();
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.disabled = true;
+      sendMessage('request-recount');
+    });
+
+    groupBtn.addEventListener('click', () => {
+      groupBtn.disabled = true;
+      sendMessage('request-group-stats');
+    });
 
     window.onmessage = event => {
-      if (event.data?.pluginMessage?.type === 'frames-counted') {
-        const payload = event.data.pluginMessage;
-        setResultState({
-          count: payload.count ?? 0,
-          pagesScanned: payload.pagesScanned ?? 0
-        });
+      const message = event.data?.pluginMessage;
+      if (!message?.type) {
+        return;
+      }
+
+      if (message.type === 'frames-counted') {
+        refreshBtn.disabled = false;
+
+        if (message.error) {
+          frameErrorEl.hidden = false;
+          frameErrorEl.textContent = message.error;
+          return;
+        }
+
+        frameErrorEl.hidden = true;
+        frameCountEl.textContent = message.count ?? 0;
+        pagesInfoEl.textContent = `Страницы: ${message.pagesScanned ?? 0}`;
+        updatedAtEl.textContent = message.updatedAt
+          ? `Обновлено: ${formatDate(message.updatedAt)}`
+          : 'Обновлено: –';
+      }
+
+      if (message.type === 'group-stats-ready') {
+        groupBtn.disabled = false;
+
+        if (message.error) {
+          groupErrorEl.hidden = false;
+          groupErrorEl.textContent = message.error;
+          return;
+        }
+
+        groupErrorEl.hidden = true;
+
+        if (!message.groups?.length) {
+          groupListEl.className = 'empty';
+          groupListEl.textContent = 'Видимых групп с фреймами не найдено';
+          return;
+        }
+
+        groupListEl.className = '';
+        groupListEl.innerHTML = message.groups
+          .map(group => `
+            <div class="group-item">
+              <span>${group.name}</span>
+              <strong>${group.frameCount}</strong>
+            </div>
+          `)
+          .join('');
       }
     };
+
+    sendMessage('request-recount');
+    sendMessage('request-group-stats');
   </script>
 </body>
 </html>

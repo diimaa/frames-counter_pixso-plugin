@@ -1,14 +1,8 @@
 {
   "name": "Frames Counter",
-  "id": "frames-counter-plugin",
-  "api": "1.0.0",
-  "main": "./main.js",
-  "ui": "./ui.html",
+  "id": "frames-counter",
   "editorType": ["pixso"],
-  "menu": [
-    {
-      "name": "Count Frames",
-      "command": "count-frames"
-    }
-  ]
+  "api": "1.0.0",
+  "main": "main.js",
+  "ui": "ui.html"
 }
