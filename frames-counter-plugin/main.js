@@ -20,27 +20,51 @@ function isInsideHiddenContainer(node) {
   return false;
 }
 
-function countFramesInsideSection(section) {
-  if (!isVisible(section) || !section?.children) {
+function hasFrameAncestor(node) {
+  let parent = node?.parent;
+  while (parent) {
+    if (parent.type === 'FRAME') {
+      return true;
+    }
+    parent = parent.parent;
+  }
+  return false;
+}
+
+function isTopLevelFrame(frame) {
+  if (!frame || frame.type !== 'FRAME') {
+    return false;
+  }
+  return !hasFrameAncestor(frame);
+}
+
+function shouldCountFrame(frame) {
+  return (
+    frame.type === 'FRAME' &&
+    isVisible(frame) &&
+    !isInsideHiddenContainer(frame) &&
+    isTopLevelFrame(frame)
+  );
+}
+
+function countTopLevelFramesWithin(node) {
+  if (!node?.children) {
     return 0;
   }
 
   let total = 0;
 
-  for (const child of section.children) {
+  for (const child of node.children) {
     if (!isVisible(child)) {
       continue;
     }
 
-    if (child.type === 'FRAME') {
-      if (!isInsideHiddenContainer(child)) {
-        total += 1;
-      }
-      continue;
+    if (shouldCountFrame(child)) {
+      total += 1;
     }
 
-    if (child.type === 'SECTION') {
-      total += countFramesInsideSection(child);
+    if (child.type === 'SECTION' || child.type === 'GROUP') {
+      total += countTopLevelFramesWithin(child);
     }
   }
 
@@ -58,27 +82,49 @@ function countVisibleTopLevelFrames() {
     }
 
     pagesScanned += 1;
-    const children = page.children ?? [];
-
-    for (const child of children) {
-      if (!isVisible(child)) {
-        continue;
-      }
-
-      if (child.type === 'FRAME') {
-        if (!isInsideHiddenContainer(child)) {
-          visibleFrameCount += 1;
-        }
-        continue;
-      }
-
-      if (child.type === 'SECTION') {
-        visibleFrameCount += countFramesInsideSection(child);
-      }
-    }
+    visibleFrameCount += countTopLevelFramesWithin(page);
   }
 
   return { count: visibleFrameCount, pagesScanned };
+}
+
+function countDirectFramesInGroup(group) {
+  const children = group.children ?? [];
+  let total = 0;
+
+  for (const child of children) {
+    if (shouldCountFrame(child)) {
+      total += 1;
+    }
+  }
+
+  return total;
+}
+
+function collectGroupsRecursive(node, target) {
+  if (!node?.children) {
+    return;
+  }
+
+  for (const child of node.children) {
+    if (!isVisible(child)) {
+      continue;
+    }
+
+    if (child.type === 'GROUP') {
+      target.push({
+        id: child.id,
+        name: child.name?.trim() || 'Группа без имени',
+        frameCount: countDirectFramesInGroup(child)
+      });
+      collectGroupsRecursive(child, target);
+      continue;
+    }
+
+    if (child.type === 'SECTION') {
+      collectGroupsRecursive(child, target);
+    }
+  }
 }
 
 function collectGroupStats() {
@@ -89,32 +135,7 @@ function collectGroupStats() {
     if (!isVisible(page)) {
       continue;
     }
-
-    const children = page.children ?? [];
-
-    for (const child of children) {
-      if (!isVisible(child) || child.type !== 'GROUP' || !child.children) {
-        continue;
-      }
-
-      let frameCount = 0;
-
-      for (const groupChild of child.children) {
-        if (
-          groupChild.type === 'FRAME' &&
-          isVisible(groupChild) &&
-          !isInsideHiddenContainer(groupChild)
-        ) {
-          frameCount += 1;
-        }
-      }
-
-      groups.push({
-        id: child.id,
-        name: child.name?.trim() || 'Группа без имени',
-        frameCount
-      });
-    }
+    collectGroupsRecursive(page, groups);
   }
 
   return groups;
